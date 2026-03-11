@@ -4,4 +4,5 @@ scikit-learn
 fastapi
 streamlit
 sqlalchemy
+plotly
 psycopg2-binary

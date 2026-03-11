@@ -1,75 +1,84 @@
 import streamlit as st
 import pandas as pd
-import plotly.express as px
 from sklearn.ensemble import IsolationForest
 
-# Load dataset
-df = pd.read_csv("C:/Users/HP/Unified-PnL-AI-System/Unified-PnL-AI-System/data/financial_data.csv")
+from charts import revenue_expense_chart
+from charts import department_performance_chart
+from charts import profit_trend_chart
+from charts import anomaly_chart
 
-st.title("Unified P&L AI Dashboard")
 
-st.write("Financial Overview Dashboard")
+# ----------------------------
+# Page Config
+# ----------------------------
+st.set_page_config(page_title="Unified P&L AI Dashboard", layout="wide")
 
-# -----------------------
-# Revenue vs Expense
-# -----------------------
+st.title("Unified P&L AI Financial Dashboard")
 
-st.subheader("Revenue vs Expense")
 
-fig = px.bar(
-    df,
-    x="department",
-    y=["revenue", "expense"],
-    barmode="group",
-    title="Revenue vs Expense by Department"
-)
+# ----------------------------
+# Load Dataset
+# ----------------------------
+df = pd.read_csv("data/financial_data.csv")
 
-st.plotly_chart(fig)
+# Create profit column
+df["profit"] = df["revenue"] - df["expense"]
 
-# -----------------------
-# Department Performance
-# -----------------------
 
+# ----------------------------
+# KPI Cards
+# ----------------------------
+st.subheader("Financial Overview")
+
+col1, col2, col3 = st.columns(3)
+
+total_revenue = df["revenue"].sum()
+total_expense = df["expense"].sum()
+total_profit = df["profit"].sum()
+
+col1.metric("Total Revenue", total_revenue)
+col2.metric("Total Expense", total_expense)
+col3.metric("Total Profit", total_profit)
+
+
+# ----------------------------
+# Charts Section
+# ----------------------------
+st.subheader("Financial Trends")
+
+st.plotly_chart(revenue_expense_chart(df), use_container_width=True)
+
+st.plotly_chart(profit_trend_chart(df), use_container_width=True)
+
+
+# ----------------------------
+# Department Analysis
+# ----------------------------
 st.subheader("Department Performance")
 
-dept = df.groupby("department")[["revenue", "expense"]].sum()
-dept["profit"] = dept["revenue"] - dept["expense"]
+st.plotly_chart(department_performance_chart(df), use_container_width=True)
 
-st.dataframe(dept)
 
-fig2 = px.bar(
-    dept,
-    y="profit",
-    title="Department Profitability"
-)
-
-st.plotly_chart(fig2)
-
-# -----------------------
-# Anomaly Detection
-# -----------------------
-
-st.subheader("Financial Anomaly Alerts")
+# ----------------------------
+# AI Anomaly Detection
+# ----------------------------
+st.subheader("AI Anomaly Detection")
 
 model = IsolationForest(contamination=0.05)
 
 df["anomaly"] = model.fit_predict(df[["revenue", "expense"]])
 
+st.plotly_chart(anomaly_chart(df), use_container_width=True)
+
 anomalies = df[df["anomaly"] == -1]
 
 st.write("Detected Anomalies")
-# Dashboard Metrics
-total_revenue = df["revenue"].sum()
-total_expense = df["expense"].sum()
-net_profit = total_revenue - total_expense
-
-col1, col2, col3 = st.columns(3)
-
-col1.metric("Total Revenue", f"₹{total_revenue:,}")
-col2.metric("Total Expense", f"₹{total_expense:,}")
-col3.metric("Net Profit", f"₹{net_profit:,}")
-
-st.dataframe(anomalies[["date", "department", "revenue", "expense"]])
+st.dataframe(anomalies)
 
 
+# ----------------------------
+# Dataset View
+# ----------------------------
+st.subheader("Complete Financial Dataset")
 
+st.dataframe(df)
