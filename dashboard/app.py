@@ -58,6 +58,18 @@ df["anomaly"] = model.fit_predict(df[["revenue", "expense"]])
 anomalies = df[df["anomaly"] == -1]
 
 st.write("Detected Anomalies")
+# Dashboard Metrics
+total_revenue = df["revenue"].sum()
+total_expense = df["expense"].sum()
+net_profit = total_revenue - total_expense
+
+col1, col2, col3 = st.columns(3)
+
+col1.metric("Total Revenue", f"₹{total_revenue:,}")
+col2.metric("Total Expense", f"₹{total_expense:,}")
+col3.metric("Net Profit", f"₹{net_profit:,}")
 
 st.dataframe(anomalies[["date", "department", "revenue", "expense"]])
+
+
 
