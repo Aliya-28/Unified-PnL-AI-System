@@ -1,84 +1,178 @@
+import sys
+import os
+
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
 import streamlit as st
 import pandas as pd
+from agents.recommendation_agent import generate_recommendations
 from sklearn.ensemble import IsolationForest
-
+from backend.report_generator import generate_report
 from charts import revenue_expense_chart
 from charts import department_performance_chart
 from charts import profit_trend_chart
 from charts import anomaly_chart
 
 
-# ----------------------------
-# Page Config
-# ----------------------------
-st.set_page_config(page_title="Unified P&L AI Dashboard", layout="wide")
+# -----------------------
+# PAGE CONFIG
+# -----------------------
 
-st.title("Unified P&L AI Financial Dashboard")
-
-
-# ----------------------------
-# Load Dataset
-# ----------------------------
-df = pd.read_csv("data/financial_data.csv")
-
-# Create profit column
-df["profit"] = df["revenue"] - df["expense"]
+st.set_page_config(page_title="Unified P&L AI System", layout="wide")
 
 
-# ----------------------------
-# KPI Cards
-# ----------------------------
-st.subheader("Financial Overview")
+# -----------------------
+# LOGIN FUNCTION
+# -----------------------
 
-col1, col2, col3 = st.columns(3)
+def login():
 
-total_revenue = df["revenue"].sum()
-total_expense = df["expense"].sum()
-total_profit = df["profit"].sum()
+    st.title("Unified P&L AI System Login")
 
-col1.metric("Total Revenue", total_revenue)
-col2.metric("Total Expense", total_expense)
-col3.metric("Total Profit", total_profit)
+    username = st.text_input("Username")
+    password = st.text_input("Password", type="password")
 
+    if st.button("Login"):
 
-# ----------------------------
-# Charts Section
-# ----------------------------
-st.subheader("Financial Trends")
-
-st.plotly_chart(revenue_expense_chart(df), use_container_width=True)
-
-st.plotly_chart(profit_trend_chart(df), use_container_width=True)
+        if username == "admin" and password == "admin123":
+            st.session_state["login"] = True
+            st.success("Login Successful")
+        else:
+            st.error("Invalid Credentials")
 
 
-# ----------------------------
-# Department Analysis
-# ----------------------------
-st.subheader("Department Performance")
+# -----------------------
+# DASHBOARD FUNCTION
+# -----------------------
 
-st.plotly_chart(department_performance_chart(df), use_container_width=True)
+def dashboard():
+
+    # Sidebar
+    st.sidebar.title("Navigation")
+
+    page = st.sidebar.radio(
+        "Go to",
+        [
+            "Dashboard",
+            "Department Analysis",
+            "Anomaly Detection",
+            "Dataset"
+        ]
+    )
+
+    # Load dataset
+    df = pd.read_csv("data/financial_data.csv")
+
+    df["profit"] = df["revenue"] - df["expense"]
+
+    # -----------------------
+    # MAIN DASHBOARD
+    # -----------------------
+    if page == "Dashboard":
+
+        st.title("Financial Overview")
+
+        col1, col2, col3 = st.columns(3)
+
+        total_revenue = df["revenue"].sum()
+        total_expense = df["expense"].sum()
+        total_profit = df["profit"].sum()
+
+        col1.metric(
+        label="Total Revenue",
+        value=f"₹ {total_revenue:,.0f}",
+        delta="Positive growth"
+        )
+
+        col2.metric(
+        label="Total Expense",
+        value=f"₹ {total_expense:,.0f}",
+        delta="Operational spending"
+        )
+
+        col3.metric(
+        label="Total Profit",
+        value=f"₹ {total_profit:,.0f}",
+        delta="Net gain"
+        )
+        st.subheader("Revenue vs Expense Trend")
+
+        st.plotly_chart(revenue_expense_chart(df), use_container_width=True)
+
+        st.subheader("Profit Trend")
+
+        st.plotly_chart(profit_trend_chart(df), use_container_width=True)
+
+        st.subheader("AI Financial Recommendations")
+
+        recommendations = generate_recommendations(df)
+
+        for rec in recommendations:
+                    st.warning(rec)
+        if st.button("Download AI Financial Report"):
+
+            report_path = generate_report(df, recommendations)
+
+            with open(report_path, "rb") as file:
+                st.download_button(
+                    label="Download Report",
+                    data=file,
+                    file_name="AI_Financial_Report.pdf",
+                    mime="application/pdf"
+                    )
+    # -----------------------
+    # DEPARTMENT ANALYSIS
+    # -----------------------
+
+    elif page == "Department Analysis":
+
+        st.title("Department Performance")
+
+        st.plotly_chart(
+            department_performance_chart(df),
+            use_container_width=True
+        )
+
+    # -----------------------
+    # ANOMALY DETECTION
+    # -----------------------
+
+    elif page == "Anomaly Detection":
+
+        st.title("AI Financial Anomaly Detection")
+
+        model = IsolationForest(contamination=0.05)
+
+        df["anomaly"] = model.fit_predict(df[["revenue", "expense"]])
+
+        anomalies = df[df["anomaly"] == -1]
+
+        st.plotly_chart(anomaly_chart(df), use_container_width=True)
+
+        st.subheader("Detected Anomalies")
+
+        st.dataframe(anomalies)
+
+    # -----------------------
+    # DATASET PAGE
+    # -----------------------
+
+    elif page == "Dataset":
+
+        st.title("Financial Dataset")
+
+        st.dataframe(df)
 
 
-# ----------------------------
-# AI Anomaly Detection
-# ----------------------------
-st.subheader("AI Anomaly Detection")
+# -----------------------
+# SESSION CONTROL
+# -----------------------
 
-model = IsolationForest(contamination=0.05)
-
-df["anomaly"] = model.fit_predict(df[["revenue", "expense"]])
-
-st.plotly_chart(anomaly_chart(df), use_container_width=True)
-
-anomalies = df[df["anomaly"] == -1]
-
-st.write("Detected Anomalies")
-st.dataframe(anomalies)
+if "login" not in st.session_state:
+    st.session_state["login"] = False
 
 
-# ----------------------------
-# Dataset View
-# ----------------------------
-st.subheader("Complete Financial Dataset")
-
-st.dataframe(df)
+if st.session_state["login"] == False:
+    login()
+else:
+    dashboard()

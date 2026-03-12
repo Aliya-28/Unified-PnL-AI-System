@@ -1,40 +1,28 @@
 import pandas as pd
-import os
 
+def generate_recommendations(df):
 
-def generate_recommendations(file_path):
+    recommendations = []
 
-    # Load dataset
-    df = pd.read_csv(file_path)
+    dept = df.groupby("department")[["revenue","expense"]].sum()
 
-    # Group by department
-    dept_summary = df.groupby("department")[["revenue", "expense"]].sum()
+    dept["profit"] = dept["revenue"] - dept["expense"]
 
-    # Calculate profit
-    dept_summary["profit"] = dept_summary["revenue"] - dept_summary["expense"]
+    for department, row in dept.iterrows():
 
-    print("\n------ RECOMMENDATION AGENT ------\n")
+        if row["profit"] < 0:
+            recommendations.append(
+                f"{department}: Department is running in loss. Reduce expenses."
+            )
 
-    for dept in dept_summary.index:
-
-        revenue = dept_summary.loc[dept, "revenue"]
-        expense = dept_summary.loc[dept, "expense"]
-        profit = dept_summary.loc[dept, "profit"]
-
-        if profit < 0:
-            print(f"{dept}: High expenses detected. Consider cost reduction.")
-
-        elif profit < 20000:
-            print(f"{dept}: Profit margin low. Optimize operational costs.")
+        elif row["profit"] < 50000:
+            recommendations.append(
+                f"{department}: Profit is low. Improve revenue strategies."
+            )
 
         else:
-            print(f"{dept}: Performing well. Maintain current strategy.")
+            recommendations.append(
+                f"{department}: Performing well. Maintain strategy."
+            )
 
-
-if __name__ == "__main__":
-
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-
-    file_path = os.path.join(current_dir, "..", "data", "financial_data.csv")
-
-    generate_recommendations(file_path)
+    return recommendations
