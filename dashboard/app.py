@@ -71,7 +71,7 @@ def dashboard():
     if page == "Dashboard":
 
         st.title("Financial Overview")
-
+    #KPI cards
         col1, col2, col3 = st.columns(3)
 
         total_revenue = df["revenue"].sum()
@@ -95,6 +95,7 @@ def dashboard():
         value=f"₹ {total_profit:,.0f}",
         delta="Net gain"
         )
+        #charts
         st.subheader("Revenue vs Expense Trend")
 
         st.plotly_chart(revenue_expense_chart(df), use_container_width=True)
@@ -102,13 +103,14 @@ def dashboard():
         st.subheader("Profit Trend")
 
         st.plotly_chart(profit_trend_chart(df), use_container_width=True)
-
+        #ai recommendation
         st.subheader("AI Financial Recommendations")
 
         recommendations = generate_recommendations(df)
 
         for rec in recommendations:
                     st.warning(rec)
+        #Download report
         if st.button("Download AI Financial Report"):
 
             report_path = generate_report(df, recommendations)
@@ -120,6 +122,27 @@ def dashboard():
                     file_name="AI_Financial_Report.pdf",
                     mime="application/pdf"
                     )
+        st.subheader("Ask AI About Financial Data")
+
+        question = st.text_input("Ask a question")
+
+        if question:
+
+            if "revenue" in question.lower():
+                st.write(f"Total revenue is {df['revenue'].sum()}")
+
+            elif "expense" in question.lower():
+                st.write(f"Total expense is {df['expense'].sum()}")
+
+            elif "profit" in question.lower():
+                st.write(f"Total profit is {df['profit'].sum()}")
+
+            elif "best department" in question.lower():
+                dept = df.groupby("department")["profit"].sum().idxmax()
+                st.write(f"Best performing department is {dept}")
+
+            else:
+                st.write("AI could not understand the question")    
     # -----------------------
     # DEPARTMENT ANALYSIS
     # -----------------------
