@@ -54,7 +54,6 @@ st.markdown("""
 # METRIC CARD
 # -----------------------
 def metric_card(title, value, subtitle, color):
-
     st.markdown(f"""
     <div class="metric-card">
         <div class="metric-title">{title}</div>
@@ -65,20 +64,8 @@ def metric_card(title, value, subtitle, color):
 
 
 # -----------------------
-# LOGIN
+# ASK AI FUNCTION
 # -----------------------
-def login():
-    st.title("🔐 Login")
-
-    u = st.text_input("Username")
-    p = st.text_input("Password", type="password")
-
-    if st.button("Login"):
-        if u == "admin" and p == "admin123":
-            st.session_state["login"] = True
-        else:
-            st.error("Invalid credentials")
-
 def answer_query(question, df):
 
     question = question.lower()
@@ -105,13 +92,30 @@ def answer_query(question, df):
         return f"There are {len(losses)} loss days."
 
     else:
-        return "Sorry, I can answer questions like total revenue, expense, profit, highest values, etc."
+        return "Try asking about revenue, expense, profit, highest values, etc."
+
+
+# -----------------------
+# LOGIN
+# -----------------------
+def login():
+    st.title("🔐 Login")
+
+    u = st.text_input("Username")
+    p = st.text_input("Password", type="password")
+
+    if st.button("Login"):
+        if u == "admin" and p == "admin123":
+            st.session_state["login"] = True
+        else:
+            st.error("Invalid credentials")
+
+
 # -----------------------
 # DASHBOARD
 # -----------------------
 def dashboard():
 
-    # 🔥 SIDEBAR WITH ICONS
     st.sidebar.markdown("## 📊 P&L AI System")
 
     page = st.sidebar.radio(
@@ -123,15 +127,13 @@ def dashboard():
     df["profit"] = df["revenue"] - df["expense"]
 
     # -----------------------
-    # DASHBOARD PAGE
+    # DASHBOARD
     # -----------------------
     if page == "📊 Dashboard":
 
-        # 🔥 TOP HEADER WITH ICON
         st.markdown("## 💼 Unified P&L AI System")
         st.caption("AI-driven Financial Intelligence Platform")
 
-        # TABS WITH ICONS
         tab1, tab2, tab3 = st.tabs(["📊 Overview", "📈 Trends", "🧠 Insights"])
 
         # -----------------------
@@ -156,7 +158,7 @@ def dashboard():
             with col3:
                 metric_card("📈 Total Profit", f"₹ {total_profit:,.0f}", "Net gain", "green")
 
-            # DOWNLOAD BUTTON
+            # REPORT
             st.markdown("### 📥 Reports")
 
             if st.button("📄 Download AI Financial Report"):
@@ -166,16 +168,14 @@ def dashboard():
                 with open(path, "rb") as f:
                     st.download_button("Download Report", f, "report.pdf")
 
-            # 🔥 ASK AI
+            # ASK AI
             st.markdown("## 🤖 Ask AI About Financial Data")
 
             question = st.text_input("Ask a question")
 
             if question:
-               answer = answer_query(question, df)
-
-               st.success("AI Answer:")
-               st.write(answer)
+                answer = answer_query(question, df)
+                st.success(answer)
 
         # -----------------------
         # TRENDS
@@ -227,16 +227,31 @@ def dashboard():
                 st.info(f"💡 {r}")
 
     # -----------------------
-    # DEPARTMENT
+    # DEPARTMENT ANALYSIS (UPDATED)
     # -----------------------
     elif page == "🏢 Department Analysis":
 
         st.markdown("## 🏢 Department Performance")
 
+        df["date"] = pd.to_datetime(df["date"], format="%d-%m-%Y", errors="coerce")
+
+        # ✅ DATE FILTER ADDED
+        start_date, end_date = st.date_input(
+            "Select Date Range",
+            [df["date"].min(), df["date"].max()]
+        )
+
+        filtered_df = df[
+            (df["date"] >= pd.to_datetime(start_date)) &
+            (df["date"] <= pd.to_datetime(end_date))
+        ]
+
         st.plotly_chart(
-            department_performance_chart(df),
+            department_performance_chart(filtered_df),
             use_container_width=True
         )
+
+        st.caption("📅 Showing department performance for selected period")
 
     # -----------------------
     # ANOMALY
@@ -262,7 +277,6 @@ def dashboard():
     elif page == "📂 Dataset":
 
         st.markdown("## 📂 Dataset")
-
         st.dataframe(df)
 
 

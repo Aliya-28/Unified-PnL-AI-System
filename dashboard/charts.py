@@ -1,7 +1,5 @@
 import pandas as pd
 import plotly.express as px
-import plotly.graph_objects as go
-from prophet import Prophet
 
 
 # ---------------------------------------
@@ -11,7 +9,7 @@ def revenue_expense_chart(df, freq):
 
     df = df.copy()
 
-    # Fix date
+    # Fix date format
     df["date"] = pd.to_datetime(df["date"], format="%d-%m-%Y", errors="coerce")
     df = df.dropna(subset=["date"])
 
@@ -28,7 +26,7 @@ def revenue_expense_chart(df, freq):
 
     df_grouped = df.resample(freq_map[freq]).sum().reset_index()
 
-    # Smart switch
+    # Smart chart switching
     if len(df_grouped) <= 2:
         fig = px.bar(
             df_grouped,
@@ -65,6 +63,7 @@ def revenue_expense_chart(df, freq):
 def profit_trend_chart(df):
 
     df = df.copy()
+
     df["date"] = pd.to_datetime(df["date"], format="%d-%m-%Y", errors="coerce")
     df = df.dropna(subset=["date"])
     df = df.sort_values("date")
@@ -86,15 +85,15 @@ def profit_trend_chart(df):
         plot_bgcolor="#0E1117",
         paper_bgcolor="#0E1117",
         font=dict(color="white"),
-        xaxis=dict(showgrid=False),
-        yaxis=dict(showgrid=True, gridcolor="#2a2f3a")
+        xaxis=dict(title="Date", showgrid=False),
+        yaxis=dict(title="Profit (₹)", showgrid=True, gridcolor="#2a2f3a")
     )
 
     return fig
 
 
 # ---------------------------------------
-# DEPARTMENT PERFORMANCE
+# DEPARTMENT PERFORMANCE (MULTI-COLOR)
 # ---------------------------------------
 def department_performance_chart(df):
 
@@ -106,15 +105,40 @@ def department_performance_chart(df):
         y="profit",
         title="Department Performance",
         template="plotly_dark",
-        color="profit",
-        color_continuous_scale="Tealgrn"
+
+        # 🔥 Different color per department
+        color="department",
+
+        # 🎨 Custom colors
+        color_discrete_map={
+            "Finance": "#00C2FF",
+            "HR": "#FFB347",
+            "IT": "#FF4B4B",
+            "Marketing": "#00FF9C",
+            "Operations": "#8A2BE2",
+            "Sales": "#FFD700"
+        }
+    )
+
+    fig.update_layout(
+        plot_bgcolor="#0E1117",
+        paper_bgcolor="#0E1117",
+        font=dict(color="white"),
+        xaxis_title="Department",
+        yaxis_title="Profit (₹)",
+        showlegend=False
+    )
+
+    # Hover improvement
+    fig.update_traces(
+        hovertemplate="Department: %{x}<br>Profit: ₹ %{y:,.0f}"
     )
 
     return fig
 
 
 # ---------------------------------------
-# ANOMALY CHART
+# ANOMALY DETECTION CHART
 # ---------------------------------------
 def anomaly_chart(df):
 
@@ -128,51 +152,12 @@ def anomaly_chart(df):
         color_continuous_scale=["#00FF9C", "#FF4B4B"]
     )
 
-    return fig
-
-
-# ---------------------------------------
-# FORECAST (PROPHET)
-# ---------------------------------------
-def forecast_chart(df):
-
-    df = df.copy()
-
-    df["date"] = pd.to_datetime(df["date"], format="%d-%m-%Y", errors="coerce")
-    df = df.dropna(subset=["date"])
-
-    prophet_df = df[["date", "revenue"]].rename(columns={
-        "date": "ds",
-        "revenue": "y"
-    })
-
-    model = Prophet()
-    model.fit(prophet_df)
-
-    future = model.make_future_dataframe(periods=30)
-    forecast = model.predict(future)
-
-    fig = go.Figure()
-
-    fig.add_trace(go.Scatter(
-        x=prophet_df["ds"],
-        y=prophet_df["y"],
-        name="Actual",
-        line=dict(color="#00C2FF")
-    ))
-
-    fig.add_trace(go.Scatter(
-        x=forecast["ds"],
-        y=forecast["yhat"],
-        name="Forecast",
-        line=dict(color="#00FF9C", dash="dash")
-    ))
-
     fig.update_layout(
-        title="Revenue Forecast (Next 30 Days)",
         plot_bgcolor="#0E1117",
         paper_bgcolor="#0E1117",
-        font=dict(color="white")
+        font=dict(color="white"),
+        xaxis_title="Revenue (₹)",
+        yaxis_title="Expense (₹)"
     )
 
     return fig
