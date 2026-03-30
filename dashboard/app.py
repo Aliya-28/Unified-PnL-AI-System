@@ -1,155 +1,237 @@
-import sys
-import os
-
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-
 import streamlit as st
 import pandas as pd
-from agents.recommendation_agent import generate_recommendations
 from sklearn.ensemble import IsolationForest
+
+from charts import (
+    revenue_expense_chart,
+    profit_trend_chart,
+    department_performance_chart,
+    anomaly_chart
+)
+
+from agents.recommendation_agent import generate_recommendations
 from backend.report_generator import generate_report
-from charts import revenue_expense_chart
-from charts import department_performance_chart
-from charts import profit_trend_chart
-from charts import anomaly_chart
 
 
 # -----------------------
 # PAGE CONFIG
 # -----------------------
-
 st.set_page_config(page_title="Unified P&L AI System", layout="wide")
 
 
 # -----------------------
-# LOGIN FUNCTION
+# CSS (CARD UI)
 # -----------------------
+st.markdown("""
+<style>
 
+.metric-card {
+    background: #1C1F26;
+    padding: 20px;
+    border-radius: 15px;
+    text-align: center;
+    box-shadow: 0px 4px 10px rgba(0,0,0,0.4);
+}
+
+.metric-title {
+    font-size: 14px;
+    color: #aaa;
+}
+
+.metric-value {
+    font-size: 28px;
+    font-weight: bold;
+}
+
+.green { color: #00FF9C; }
+.red { color: #FF4B4B; }
+
+</style>
+""", unsafe_allow_html=True)
+
+
+# -----------------------
+# METRIC CARD
+# -----------------------
+def metric_card(title, value, subtitle, color):
+
+    st.markdown(f"""
+    <div class="metric-card">
+        <div class="metric-title">{title}</div>
+        <div class="metric-value">{value}</div>
+        <div class="{color}">{subtitle}</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+
+# -----------------------
+# LOGIN
+# -----------------------
 def login():
+    st.title("🔐 Login")
 
-    st.title("Unified P&L AI System Login")
-
-    username = st.text_input("Username")
-    password = st.text_input("Password", type="password")
+    u = st.text_input("Username")
+    p = st.text_input("Password", type="password")
 
     if st.button("Login"):
-
-        if username == "admin" and password == "admin123":
+        if u == "admin" and p == "admin123":
             st.session_state["login"] = True
-            st.success("Login Successful")
         else:
-            st.error("Invalid Credentials")
+            st.error("Invalid credentials")
 
+def answer_query(question, df):
 
+    question = question.lower()
+
+    if "total revenue" in question:
+        return f"Total Revenue is ₹ {df['revenue'].sum():,.0f}"
+
+    elif "total expense" in question:
+        return f"Total Expense is ₹ {df['expense'].sum():,.0f}"
+
+    elif "total profit" in question:
+        return f"Total Profit is ₹ {df['profit'].sum():,.0f}"
+
+    elif "highest revenue" in question:
+        row = df.loc[df["revenue"].idxmax()]
+        return f"Highest revenue was ₹ {row['revenue']} on {row['date']}"
+
+    elif "highest expense" in question:
+        row = df.loc[df["expense"].idxmax()]
+        return f"Highest expense was ₹ {row['expense']} on {row['date']}"
+
+    elif "loss" in question:
+        losses = df[df["profit"] < 0]
+        return f"There are {len(losses)} loss days."
+
+    else:
+        return "Sorry, I can answer questions like total revenue, expense, profit, highest values, etc."
 # -----------------------
-# DASHBOARD FUNCTION
+# DASHBOARD
 # -----------------------
-
 def dashboard():
 
-    # Sidebar
-    st.sidebar.title("Navigation")
+    # 🔥 SIDEBAR WITH ICONS
+    st.sidebar.markdown("## 📊 P&L AI System")
 
     page = st.sidebar.radio(
-        "Go to",
-        [
-            "Dashboard",
-            "Department Analysis",
-            "Anomaly Detection",
-            "Dataset"
-        ]
+        "Navigate",
+        ["📊 Dashboard", "🏢 Department Analysis", "🚨 Anomaly Detection", "📂 Dataset"]
     )
 
-    # Load dataset
     df = pd.read_csv("data/financial_data.csv")
-
     df["profit"] = df["revenue"] - df["expense"]
 
     # -----------------------
-    # MAIN DASHBOARD
+    # DASHBOARD PAGE
     # -----------------------
-    if page == "Dashboard":
+    if page == "📊 Dashboard":
 
-        st.title("Financial Overview")
-    #KPI cards
-        col1, col2, col3 = st.columns(3)
+        # 🔥 TOP HEADER WITH ICON
+        st.markdown("## 💼 Unified P&L AI System")
+        st.caption("AI-driven Financial Intelligence Platform")
 
-        total_revenue = df["revenue"].sum()
-        total_expense = df["expense"].sum()
-        total_profit = df["profit"].sum()
+        # TABS WITH ICONS
+        tab1, tab2, tab3 = st.tabs(["📊 Overview", "📈 Trends", "🧠 Insights"])
 
-        col1.metric(
-        label="Total Revenue",
-        value=f"₹ {total_revenue:,.0f}",
-        delta="Positive growth"
-        )
+        # -----------------------
+        # OVERVIEW
+        # -----------------------
+        with tab1:
 
-        col2.metric(
-        label="Total Expense",
-        value=f"₹ {total_expense:,.0f}",
-        delta="Operational spending"
-        )
+            st.markdown("## 📊 Financial Overview")
 
-        col3.metric(
-        label="Total Profit",
-        value=f"₹ {total_profit:,.0f}",
-        delta="Net gain"
-        )
-        #charts
-        st.subheader("Revenue vs Expense Trend")
+            col1, col2, col3 = st.columns(3)
 
-        st.plotly_chart(revenue_expense_chart(df), use_container_width=True)
+            total_revenue = df["revenue"].sum()
+            total_expense = df["expense"].sum()
+            total_profit = df["profit"].sum()
 
-        st.subheader("Profit Trend")
+            with col1:
+                metric_card("💰 Total Revenue", f"₹ {total_revenue:,.0f}", "Total inflow", "green")
 
-        st.plotly_chart(profit_trend_chart(df), use_container_width=True)
-        #ai recommendation
-        st.subheader("AI Financial Recommendations")
+            with col2:
+                metric_card("📉 Total Expense", f"₹ {total_expense:,.0f}", "Total outflow", "red")
 
-        recommendations = generate_recommendations(df)
+            with col3:
+                metric_card("📈 Total Profit", f"₹ {total_profit:,.0f}", "Net gain", "green")
 
-        for rec in recommendations:
-                    st.warning(rec)
-        #Download report
-        if st.button("Download AI Financial Report"):
+            # DOWNLOAD BUTTON
+            st.markdown("### 📥 Reports")
 
-            report_path = generate_report(df, recommendations)
+            if st.button("📄 Download AI Financial Report"):
+                recs = generate_recommendations(df)
+                path = generate_report(df, recs)
 
-            with open(report_path, "rb") as file:
-                st.download_button(
-                    label="Download Report",
-                    data=file,
-                    file_name="AI_Financial_Report.pdf",
-                    mime="application/pdf"
-                    )
-        st.subheader("Ask AI About Financial Data")
+                with open(path, "rb") as f:
+                    st.download_button("Download Report", f, "report.pdf")
 
-        question = st.text_input("Ask a question")
+            # 🔥 ASK AI
+            st.markdown("## 🤖 Ask AI About Financial Data")
 
-        if question:
+            question = st.text_input("Ask a question")
 
-            if "revenue" in question.lower():
-                st.write(f"Total revenue is {df['revenue'].sum()}")
+            if question:
+               answer = answer_query(question, df)
 
-            elif "expense" in question.lower():
-                st.write(f"Total expense is {df['expense'].sum()}")
+               st.success("AI Answer:")
+               st.write(answer)
 
-            elif "profit" in question.lower():
-                st.write(f"Total profit is {df['profit'].sum()}")
+        # -----------------------
+        # TRENDS
+        # -----------------------
+        with tab2:
 
-            elif "best department" in question.lower():
-                dept = df.groupby("department")["profit"].sum().idxmax()
-                st.write(f"Best performing department is {dept}")
+            st.markdown("## 📈 Revenue vs Expense")
 
-            else:
-                st.write("AI could not understand the question")    
+            df["date"] = pd.to_datetime(df["date"], format="%d-%m-%Y", errors="coerce")
+
+            start_date, end_date = st.date_input(
+                "Select Date Range",
+                [df["date"].min(), df["date"].max()]
+            )
+
+            filtered_df = df[
+                (df["date"] >= pd.to_datetime(start_date)) &
+                (df["date"] <= pd.to_datetime(end_date))
+            ]
+
+            freq = st.selectbox(
+                "Aggregation",
+                ["Daily", "Weekly", "Monthly", "Quarterly", "Half-Yearly", "Yearly"]
+            )
+
+            st.plotly_chart(
+                revenue_expense_chart(filtered_df, freq),
+                use_container_width=True
+            )
+
+            st.markdown("## 📊 Profit Trend")
+
+            st.plotly_chart(
+                profit_trend_chart(filtered_df),
+                use_container_width=True
+            )
+
+        # -----------------------
+        # INSIGHTS
+        # -----------------------
+        with tab3:
+
+            st.markdown("## 🧠 AI Insights")
+
+            with st.spinner("Analyzing..."):
+                recs = generate_recommendations(df)
+
+            for r in recs:
+                st.info(f"💡 {r}")
+
     # -----------------------
-    # DEPARTMENT ANALYSIS
+    # DEPARTMENT
     # -----------------------
+    elif page == "🏢 Department Analysis":
 
-    elif page == "Department Analysis":
-
-        st.title("Department Performance")
+        st.markdown("## 🏢 Department Performance")
 
         st.plotly_chart(
             department_performance_chart(df),
@@ -157,45 +239,40 @@ def dashboard():
         )
 
     # -----------------------
-    # ANOMALY DETECTION
+    # ANOMALY
     # -----------------------
+    elif page == "🚨 Anomaly Detection":
 
-    elif page == "Anomaly Detection":
+        st.markdown("## 🚨 Anomaly Detection")
 
-        st.title("AI Financial Anomaly Detection")
+        with st.spinner("Detecting anomalies..."):
+            model = IsolationForest(contamination=0.05)
+            df["anomaly"] = model.fit_predict(df[["revenue", "expense"]])
 
-        model = IsolationForest(contamination=0.05)
+        st.plotly_chart(
+            anomaly_chart(df),
+            use_container_width=True
+        )
 
-        df["anomaly"] = model.fit_predict(df[["revenue", "expense"]])
-
-        anomalies = df[df["anomaly"] == -1]
-
-        st.plotly_chart(anomaly_chart(df), use_container_width=True)
-
-        st.subheader("Detected Anomalies")
-
-        st.dataframe(anomalies)
+        st.dataframe(df[df["anomaly"] == -1])
 
     # -----------------------
-    # DATASET PAGE
+    # DATASET
     # -----------------------
+    elif page == "📂 Dataset":
 
-    elif page == "Dataset":
-
-        st.title("Financial Dataset")
+        st.markdown("## 📂 Dataset")
 
         st.dataframe(df)
 
 
 # -----------------------
-# SESSION CONTROL
+# RUN APP
 # -----------------------
-
 if "login" not in st.session_state:
     st.session_state["login"] = False
 
-
-if st.session_state["login"] == False:
+if not st.session_state["login"]:
     login()
 else:
     dashboard()
