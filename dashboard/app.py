@@ -1,3 +1,7 @@
+import sys
+import os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
 import streamlit as st
 import pandas as pd
 from sklearn.ensemble import IsolationForest
@@ -13,18 +17,14 @@ from agents.recommendation_agent import generate_recommendations
 from backend.report_generator import generate_report
 
 
-# -----------------------
-# PAGE CONFIG
-# -----------------------
 st.set_page_config(page_title="Unified P&L AI System", layout="wide")
 
 
 # -----------------------
-# CSS (CARD UI)
+# CSS (UI IMPROVEMENT)
 # -----------------------
 st.markdown("""
 <style>
-
 .metric-card {
     background: #1C1F26;
     padding: 20px;
@@ -32,27 +32,20 @@ st.markdown("""
     text-align: center;
     box-shadow: 0px 4px 10px rgba(0,0,0,0.4);
 }
-
 .metric-title {
     font-size: 14px;
     color: #aaa;
 }
-
 .metric-value {
     font-size: 28px;
     font-weight: bold;
 }
-
 .green { color: #00FF9C; }
 .red { color: #FF4B4B; }
-
 </style>
 """, unsafe_allow_html=True)
 
 
-# -----------------------
-# METRIC CARD
-# -----------------------
 def metric_card(title, value, subtitle, color):
     st.markdown(f"""
     <div class="metric-card">
@@ -64,35 +57,38 @@ def metric_card(title, value, subtitle, color):
 
 
 # -----------------------
-# ASK AI FUNCTION
+# ASK AI
 # -----------------------
-def answer_query(question, df):
+def answer_query(q, df):
+    q = q.lower()
 
-    question = question.lower()
-
-    if "total revenue" in question:
-        return f"Total Revenue is ₹ {df['revenue'].sum():,.0f}"
-
-    elif "total expense" in question:
-        return f"Total Expense is ₹ {df['expense'].sum():,.0f}"
-
-    elif "total profit" in question:
-        return f"Total Profit is ₹ {df['profit'].sum():,.0f}"
-
-    elif "highest revenue" in question:
-        row = df.loc[df["revenue"].idxmax()]
-        return f"Highest revenue was ₹ {row['revenue']} on {row['date']}"
-
-    elif "highest expense" in question:
-        row = df.loc[df["expense"].idxmax()]
-        return f"Highest expense was ₹ {row['expense']} on {row['date']}"
-
-    elif "loss" in question:
-        losses = df[df["profit"] < 0]
-        return f"There are {len(losses)} loss days."
-
+    if "revenue" in q:
+        return f"₹ {df['revenue'].sum():,.0f}"
+    elif "expense" in q:
+        return f"₹ {df['expense'].sum():,.0f}"
+    elif "profit" in q:
+        return f"₹ {df['profit'].sum():,.0f}"
     else:
-        return "Try asking about revenue, expense, profit, highest values, etc."
+        return "Try asking revenue, expense or profit."
+
+
+# -----------------------
+# CLEAN DATA
+# -----------------------
+def clean_dataset(df):
+    df.columns = [c.lower() for c in df.columns]
+
+    df["date"] = pd.to_datetime(df["date"], errors="coerce", dayfirst=True)
+    df = df.dropna(subset=["date"])
+
+    df["revenue"] = pd.to_numeric(df["revenue"], errors="coerce")
+    df["expense"] = pd.to_numeric(df["expense"], errors="coerce")
+
+    df = df.dropna(subset=["revenue", "expense"])
+
+    df["department"] = df["department"].astype(str).str.strip().str.title()
+
+    return df
 
 
 # -----------------------
@@ -107,8 +103,29 @@ def login():
     if st.button("Login"):
         if u == "admin" and p == "admin123":
             st.session_state["login"] = True
+            st.session_state["page"] = "upload"
         else:
             st.error("Invalid credentials")
+
+
+# -----------------------
+# UPLOAD
+# -----------------------
+def upload_page():
+    st.title("📂 Upload Dataset")
+
+    file = st.file_uploader("Upload CSV", type=["csv"])
+
+    if file:
+        df = pd.read_csv(file)
+        df = clean_dataset(df)
+
+        st.session_state["data"] = df
+
+        st.success("✅ Data uploaded")
+
+        if st.button("Go to Dashboard"):
+            st.session_state["page"] = "dashboard"
 
 
 # -----------------------
@@ -116,6 +133,10 @@ def login():
 # -----------------------
 def dashboard():
 
+    df = st.session_state["data"]
+    df["profit"] = df["revenue"] - df["expense"]
+
+    # Sidebar
     st.sidebar.markdown("## 📊 P&L AI System")
 
     page = st.sidebar.radio(
@@ -123,14 +144,12 @@ def dashboard():
         ["📊 Dashboard", "🏢 Department Analysis", "🚨 Anomaly Detection", "📂 Dataset"]
     )
 
-    df = pd.read_csv("data/financial_data.csv")
-    df["profit"] = df["revenue"] - df["expense"]
-
     # -----------------------
-    # DASHBOARD
+    # MAIN DASHBOARD
     # -----------------------
     if page == "📊 Dashboard":
 
+        # HEADER (LIKE IMAGE)
         st.markdown("## 💼 Unified P&L AI System")
         st.caption("AI-driven Financial Intelligence Platform")
 
@@ -141,152 +160,114 @@ def dashboard():
         # -----------------------
         with tab1:
 
-            st.markdown("## 📊 Financial Overview")
+            st.markdown("### 📊 Financial Overview")
+            st.markdown("#### 💰 Key Metrics")
 
             col1, col2, col3 = st.columns(3)
 
-            total_revenue = df["revenue"].sum()
-            total_expense = df["expense"].sum()
-            total_profit = df["profit"].sum()
-
             with col1:
-                metric_card("💰 Total Revenue", f"₹ {total_revenue:,.0f}", "Total inflow", "green")
+                metric_card("💰 Total Revenue", f"₹ {df['revenue'].sum():,.0f}", "Total inflow", "green")
 
             with col2:
-                metric_card("📉 Total Expense", f"₹ {total_expense:,.0f}", "Total outflow", "red")
+                metric_card("📉 Total Expense", f"₹ {df['expense'].sum():,.0f}", "Total outflow", "red")
 
             with col3:
-                metric_card("📈 Total Profit", f"₹ {total_profit:,.0f}", "Net gain", "green")
+                metric_card("📈 Total Profit", f"₹ {df['profit'].sum():,.0f}", "Net gain", "green")
 
-            # REPORT
-            st.markdown("### 📥 Reports")
+            # REPORT BUTTON (UI ONLY)
+            st.markdown("### 📥 Download AI Financial Report")
+            st.button("📄 Download Report")
 
-            if st.button("📄 Download AI Financial Report"):
-                recs = generate_recommendations(df)
-                path = generate_report(df, recs)
-
-                with open(path, "rb") as f:
-                    st.download_button("Download Report", f, "report.pdf")
-
-            # ASK AI
+            # ASK AI SECTION
             st.markdown("## 🤖 Ask AI About Financial Data")
 
-            question = st.text_input("Ask a question")
+            q = st.text_input("Ask a question")
 
-            if question:
-                answer = answer_query(question, df)
-                st.success(answer)
+            if q:
+                st.success(answer_query(q, df))
 
         # -----------------------
         # TRENDS
         # -----------------------
         with tab2:
 
-            st.markdown("## 📈 Revenue vs Expense")
+            df["date"] = pd.to_datetime(df["date"])
 
-            df["date"] = pd.to_datetime(df["date"], format="%d-%m-%Y", errors="coerce")
-
-            start_date, end_date = st.date_input(
-                "Select Date Range",
-                [df["date"].min(), df["date"].max()]
+            start, end = st.date_input(
+                "📅 Date Range",
+                (df["date"].min().date(), df["date"].max().date())
             )
 
-            filtered_df = df[
-                (df["date"] >= pd.to_datetime(start_date)) &
-                (df["date"] <= pd.to_datetime(end_date))
+            filtered = df[
+                (df["date"] >= pd.to_datetime(start)) &
+                (df["date"] <= pd.to_datetime(end))
             ]
 
             freq = st.selectbox(
-                "Aggregation",
+                "📊 Aggregation",
                 ["Daily", "Weekly", "Monthly", "Quarterly", "Half-Yearly", "Yearly"]
             )
 
-            st.plotly_chart(
-                revenue_expense_chart(filtered_df, freq),
-                use_container_width=True
-            )
+            st.markdown("### 📈 Revenue vs Expense Trend")
+            st.plotly_chart(revenue_expense_chart(filtered, freq), use_container_width=True)
 
-            st.markdown("## 📊 Profit Trend")
-
-            st.plotly_chart(
-                profit_trend_chart(filtered_df),
-                use_container_width=True
-            )
+            st.markdown("### 📊 Profit Trend Over Time")
+            st.plotly_chart(profit_trend_chart(filtered, freq), use_container_width=True)
 
         # -----------------------
         # INSIGHTS
         # -----------------------
         with tab3:
 
-            st.markdown("## 🧠 AI Insights")
+            st.markdown("### 🧠 AI Insights")
 
-            with st.spinner("Analyzing..."):
-                recs = generate_recommendations(df)
+            recs = generate_recommendations(df)
 
             for r in recs:
-                st.info(f"💡 {r}")
+                st.markdown(f"""
+                <div style="
+                    background: linear-gradient(90deg, #00c2ff, #007bff);
+                    padding: 15px;
+                    border-radius: 12px;
+                    margin-bottom: 10px;
+                    color: white;
+                    font-size: 16px;
+                    font-weight: 500;
+                ">
+                {r}
+                </div>
+                """, unsafe_allow_html=True)
 
-    # -----------------------
-    # DEPARTMENT ANALYSIS (UPDATED)
-    # -----------------------
     elif page == "🏢 Department Analysis":
-
         st.markdown("## 🏢 Department Performance")
+        st.plotly_chart(department_performance_chart(df), use_container_width=True)
 
-        df["date"] = pd.to_datetime(df["date"], format="%d-%m-%Y", errors="coerce")
-
-        # ✅ DATE FILTER ADDED
-        start_date, end_date = st.date_input(
-            "Select Date Range",
-            [df["date"].min(), df["date"].max()]
-        )
-
-        filtered_df = df[
-            (df["date"] >= pd.to_datetime(start_date)) &
-            (df["date"] <= pd.to_datetime(end_date))
-        ]
-
-        st.plotly_chart(
-            department_performance_chart(filtered_df),
-            use_container_width=True
-        )
-
-        st.caption("📅 Showing department performance for selected period")
-
-    # -----------------------
-    # ANOMALY
-    # -----------------------
     elif page == "🚨 Anomaly Detection":
-
         st.markdown("## 🚨 Anomaly Detection")
 
-        with st.spinner("Detecting anomalies..."):
-            model = IsolationForest(contamination=0.05)
-            df["anomaly"] = model.fit_predict(df[["revenue", "expense"]])
+        model = IsolationForest(contamination=0.05)
+        df["anomaly"] = model.fit_predict(df[["revenue", "expense"]])
 
-        st.plotly_chart(
-            anomaly_chart(df),
-            use_container_width=True
-        )
+        st.plotly_chart(anomaly_chart(df), use_container_width=True)
 
-        st.dataframe(df[df["anomaly"] == -1])
-
-    # -----------------------
-    # DATASET
-    # -----------------------
-    elif page == "📂 Dataset":
-
-        st.markdown("## 📂 Dataset")
+    else:
+        st.markdown("## 📂 Dataset Overview")
         st.dataframe(df)
 
 
 # -----------------------
-# RUN APP
+# RUN
 # -----------------------
 if "login" not in st.session_state:
     st.session_state["login"] = False
 
+if "page" not in st.session_state:
+    st.session_state["page"] = "upload"
+
 if not st.session_state["login"]:
     login()
 else:
-    dashboard()
+    if st.session_state["page"] == "upload":
+        upload_page()
+    else:
+        dashboard()

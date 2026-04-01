@@ -1,28 +1,42 @@
-import pandas as pd
-
 def generate_recommendations(df):
 
-    recommendations = []
+    insights = []
 
-    dept = df.groupby("department")[["revenue","expense"]].sum()
+    # Add profit column
+    df["profit"] = df["revenue"] - df["expense"]
 
-    dept["profit"] = dept["revenue"] - dept["expense"]
+    # Group by department
+    dept_df = df.groupby("department").agg({
+        "revenue": "sum",
+        "expense": "sum",
+        "profit": "sum"
+    }).reset_index()
 
-    for department, row in dept.iterrows():
+    for _, row in dept_df.iterrows():
 
-        if row["profit"] < 0:
-            recommendations.append(
-                f"{department}: Department is running in loss. Reduce expenses."
-            )
+        dept = row["department"]
+        revenue = row["revenue"]
+        expense = row["expense"]
+        profit = row["profit"]
 
-        elif row["profit"] < 50000:
-            recommendations.append(
-                f"{department}: Profit is low. Improve revenue strategies."
-            )
+        if expense == 0:
+            continue
+
+        margin = profit / expense
+
+        # -----------------------
+        # IMPROVED CONDITIONS
+        # -----------------------
+        if profit < 0:
+            insights.append(f"{dept}: Loss detected. Immediate action required.")
+
+        elif margin < 0.1:
+            insights.append(f"{dept}: Very low profit. Cost optimization needed.")
+
+        elif margin < 0.3:
+            insights.append(f"{dept}: Moderate performance. Can improve efficiency.")
 
         else:
-            recommendations.append(
-                f"{department}: Performing well. Maintain strategy."
-            )
+            insights.append(f"{dept}: Strong performance. Continue growth strategy.")
 
-    return recommendations
+    return insights
