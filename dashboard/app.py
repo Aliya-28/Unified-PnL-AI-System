@@ -10,7 +10,9 @@ from charts import (
     revenue_expense_chart,
     profit_trend_chart,
     department_performance_chart,
-    anomaly_chart
+    anomaly_chart,
+    calculate_growth_metrics,   # ✅ ADDED
+    top_department              # ✅ ADDED
 )
 
 from agents.recommendation_agent import generate_recommendations
@@ -136,9 +138,11 @@ def dashboard():
     df = st.session_state["data"]
     df["profit"] = df["revenue"] - df["expense"]
 
-    # Sidebar
-    st.sidebar.markdown("## 📊 P&L AI System")
+    
 
+    # -----------------------
+    # NAVIGATION
+    # -----------------------
     page = st.sidebar.radio(
         "Navigate",
         ["📊 Dashboard", "🏢 Department Analysis", "🚨 Anomaly Detection", "📂 Dataset"]
@@ -149,7 +153,6 @@ def dashboard():
     # -----------------------
     if page == "📊 Dashboard":
 
-        # HEADER (LIKE IMAGE)
         st.markdown("## 💼 Unified P&L AI System")
         st.caption("AI-driven Financial Intelligence Platform")
 
@@ -174,11 +177,30 @@ def dashboard():
             with col3:
                 metric_card("📈 Total Profit", f"₹ {df['profit'].sum():,.0f}", "Net gain", "green")
 
-            # REPORT BUTTON (UI ONLY)
+            # -----------------------
+            # 🔥 NEW KPI BLOCK
+            # -----------------------
+            growth = calculate_growth_metrics(df)
+            best = top_department(df)
+
+            st.markdown("### 📊 Performance Insights")
+            k1, k2 = st.columns(2)
+
+            with k1:
+                st.metric("📈 Revenue Growth", f"{growth}%", delta=f"{growth}%")
+
+            with k2:
+                st.success(f"🏆 Best Department: {best}")
+
+            # -----------------------
+            # REPORT BUTTON
+            # -----------------------
             st.markdown("### 📥 Download AI Financial Report")
             st.button("📄 Download Report")
 
-            # ASK AI SECTION
+            # -----------------------
+            # ASK AI
+            # -----------------------
             st.markdown("## 🤖 Ask AI About Financial Data")
 
             q = st.text_input("Ask a question")
