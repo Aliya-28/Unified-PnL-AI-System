@@ -192,12 +192,19 @@ def dashboard():
 
             with k2:
                 st.success(f"🏆 Best Department: {best}")
-
+                
+            recs = generate_recommendations(df)
             # -----------------------
             # REPORT BUTTON
             # -----------------------
-            st.markdown("### 📥 Download AI Financial Report")
-            st.button("📄 Download Report")
+            pdf_file = generate_report(df, recs)
+
+            st.download_button(
+            label="📄 Download Professional Report",
+            data=pdf_file,
+            file_name="AI_Financial_Report.pdf",
+            mime="application/pdf"
+)
 
             # -----------------------
             # ASK AI
